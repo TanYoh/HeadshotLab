@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>三角洲枪法训练</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="hero" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">FPS Aim Trainer</p>
+          <h1 id="page-title">三角洲行动枪法训练</h1>
+          <p class="subtitle">设置训练节奏，在随机出现的目标上快速移动并点击，结束后自动保存成绩。</p>
+        </div>
+
+        <div class="score-card" aria-live="polite">
+          <span>当前分数</span>
+          <strong id="score">0</strong>
+        </div>
+      </section>
+
+      <section class="layout">
+        <aside class="panel" aria-label="游戏设置">
+          <form id="settings-form" class="settings">
+            <label>
+              <span>游戏时长（秒）</span>
+              <input id="duration" name="duration" type="number" min="5" max="300" step="5" value="60" />
+            </label>
+
+            <label>
+              <span>出点间隔（毫秒）</span>
+              <input id="interval" name="interval" type="number" min="150" max="5000" step="50" value="800" />
+            </label>
+
+            <label>
+              <span>目标大小（像素）</span>
+              <input id="target-size" name="targetSize" type="number" min="12" max="120" step="2" value="42" />
+            </label>
+
+            <div class="actions">
+              <button id="start-button" type="submit">开始训练</button>
+              <button id="reset-button" type="button" class="secondary">重置</button>
+            </div>
+          </form>
+
+          <div class="stats" aria-label="实时数据">
+            <div>
+              <span>剩余时间</span>
+              <strong id="time-left">60.0s</strong>
+            </div>
+            <div>
+              <span>已出现目标</span>
+              <strong id="spawn-count">0</strong>
+            </div>
+            <div>
+              <span>命中率</span>
+              <strong id="accuracy">0%</strong>
+            </div>
+          </div>
+
+          <section class="records" aria-labelledby="records-title">
+            <div class="records-header">
+              <h2 id="records-title">分数记录</h2>
+              <button id="clear-records" type="button" class="text-button">清空</button>
+            </div>
+            <ol id="records-list" class="records-list"></ol>
+          </section>
+        </aside>
+
+        <section class="game-shell" aria-label="训练区域">
+          <div class="game-status" id="game-status">调整参数后点击开始训练</div>
+          <div id="game-area" class="game-area" tabindex="0" aria-label="目标出现区域"></div>
+        </section>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>

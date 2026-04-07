@@ -1,0 +1,366 @@
+:root {
+  color-scheme: dark;
+  --bg: #080d14;
+  --panel: rgba(16, 25, 39, 0.82);
+  --text: #ecf5ff;
+  --muted: #92a5b8;
+  --accent: #00e0ff;
+  --accent-strong: #00a8ff;
+  --danger: #ff4d6d;
+  --target: #ffdf3d;
+  --border: rgba(255, 255, 255, 0.12);
+  --shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+  font-family:
+    Inter, "Microsoft YaHei", "PingFang SC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 18% 12%, rgba(0, 224, 255, 0.2), transparent 28rem),
+    radial-gradient(circle at 90% 18%, rgba(255, 77, 109, 0.18), transparent 26rem),
+    linear-gradient(135deg, #060913 0%, #101827 52%, #06101a 100%);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+}
+
+.app {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 32px 0;
+}
+
+.hero,
+.layout {
+  display: grid;
+  gap: 24px;
+}
+
+.hero {
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 12px;
+  font-size: clamp(2rem, 5vw, 4.5rem);
+  line-height: 0.95;
+}
+
+.subtitle {
+  max-width: 720px;
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.score-card,
+.panel,
+.game-shell {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.score-card {
+  min-width: 156px;
+  padding: 18px 22px;
+  border-radius: 22px;
+  text-align: center;
+}
+
+.score-card span,
+.stats span,
+.settings span,
+.record-meta {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.score-card strong {
+  display: block;
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.layout {
+  grid-template-columns: minmax(280px, 340px) 1fr;
+  align-items: stretch;
+}
+
+.panel,
+.game-shell {
+  border-radius: 28px;
+}
+
+.panel {
+  display: grid;
+  gap: 22px;
+  padding: 22px;
+}
+
+.settings {
+  display: grid;
+  gap: 16px;
+}
+
+.settings label {
+  display: grid;
+  gap: 8px;
+}
+
+.settings input {
+  width: 100%;
+  padding: 12px 14px;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  outline: none;
+  background: rgba(4, 9, 17, 0.72);
+}
+
+.settings input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 224, 255, 0.16);
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 0.75fr;
+  gap: 10px;
+}
+
+.actions button {
+  min-height: 46px;
+  color: #03121d;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  font-weight: 800;
+}
+
+.actions .secondary {
+  color: var(--text);
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.actions button:disabled {
+  cursor: not-allowed;
+  filter: grayscale(1);
+  opacity: 0.65;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.stats div {
+  padding: 14px 10px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.stats strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 1.05rem;
+}
+
+.records-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.records h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.text-button {
+  color: var(--accent);
+  background: transparent;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.records-list {
+  display: grid;
+  max-height: 260px;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.records-list li,
+.empty-records {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.record-score {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-weight: 800;
+}
+
+.record-meta {
+  display: block;
+  margin-top: 5px;
+}
+
+.game-shell {
+  position: relative;
+  min-height: 620px;
+  padding: 18px;
+}
+
+.game-status {
+  position: absolute;
+  z-index: 5;
+  top: 34px;
+  left: 50%;
+  padding: 10px 16px;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(4, 9, 17, 0.68);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.game-area {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 584px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 224, 255, 0.16);
+  border-radius: 22px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    radial-gradient(circle at center, rgba(0, 224, 255, 0.08), transparent 34rem),
+    rgba(3, 8, 14, 0.92);
+  background-size:
+    42px 42px,
+    42px 42px,
+    auto,
+    auto;
+  cursor: crosshair;
+}
+
+.game-area::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, transparent 62%, rgba(0, 0, 0, 0.42));
+  pointer-events: none;
+}
+
+.target {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  border: 3px solid rgba(255, 255, 255, 0.88);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, var(--danger) 0 18%, transparent 19%),
+    radial-gradient(circle at center, transparent 0 42%, rgba(255, 255, 255, 0.92) 43% 50%, transparent 51%),
+    radial-gradient(circle at center, var(--target), #ff9e2c);
+  box-shadow:
+    0 0 0 7px rgba(255, 223, 61, 0.16),
+    0 0 28px rgba(255, 223, 61, 0.78);
+  transform: translate(-50%, -50%) scale(0.7);
+  animation: pop-in 120ms ease-out forwards;
+}
+
+.target:active {
+  transform: translate(-50%, -50%) scale(0.92);
+}
+
+@keyframes pop-in {
+  to {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@media (max-width: 900px) {
+  .hero,
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .score-card {
+    width: 100%;
+  }
+
+  .game-shell {
+    min-height: 520px;
+  }
+
+  .game-area {
+    min-height: 484px;
+  }
+}
+
+@media (max-width: 560px) {
+  .app {
+    width: min(100% - 20px, 1180px);
+    padding: 18px 0;
+  }
+
+  .panel,
+  .game-shell {
+    border-radius: 22px;
+  }
+
+  .stats,
+  .actions {
+    grid-template-columns: 1fr;
+  }
+}
