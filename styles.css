@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   color-scheme: dark;
   --bg: #080d14;
   --panel: rgba(16, 25, 39, 0.82);
@@ -27,10 +27,12 @@ body {
     radial-gradient(circle at 18% 12%, rgba(0, 224, 255, 0.2), transparent 28rem),
     radial-gradient(circle at 90% 18%, rgba(255, 77, 109, 0.18), transparent 26rem),
     linear-gradient(135deg, #060913 0%, #101827 52%, #06101a 100%);
+  overflow: hidden;
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -40,21 +42,43 @@ button {
 }
 
 .app {
-  width: min(1180px, calc(100% - 32px));
+  --app-max-width: 1180px;
+  --layout-gap: 24px;
+  --panel-min-width: 280px;
+  --panel-max-width: 340px;
+  width: min(var(--app-max-width), calc(100% - 32px));
   margin: 0 auto;
-  padding: 32px 0;
+  height: 100dvh;
+  padding: 24px 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 20px;
+}
+
+.app[data-ui-size="medium"] {
+  --app-max-width: 1480px;
+  --layout-gap: 26px;
+  --panel-min-width: 300px;
+  --panel-max-width: 368px;
+}
+
+.app[data-ui-size="large"] {
+  --app-max-width: 2200px;
+  --layout-gap: 28px;
+  --panel-min-width: 320px;
+  --panel-max-width: 392px;
 }
 
 .hero,
 .layout {
   display: grid;
-  gap: 24px;
+  gap: var(--layout-gap);
 }
 
 .hero {
   grid-template-columns: 1fr auto;
   align-items: end;
-  margin-bottom: 24px;
+  min-height: 0;
 }
 
 .eyebrow {
@@ -116,8 +140,9 @@ h1 {
 }
 
 .layout {
-  grid-template-columns: minmax(280px, 340px) 1fr;
+  grid-template-columns: minmax(var(--panel-min-width), var(--panel-max-width)) minmax(0, 1fr);
   align-items: stretch;
+  min-height: 0;
 }
 
 .panel,
@@ -127,8 +152,11 @@ h1 {
 
 .panel {
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 22px;
   padding: 22px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .settings {
@@ -136,24 +164,83 @@ h1 {
   gap: 16px;
 }
 
-.settings label {
+.settings .setting-field {
   display: grid;
   gap: 8px;
 }
 
-.settings input {
-  width: 100%;
+.settings input[type="hidden"] {
+  display: none;
+}
+
+.option-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 10px;
+}
+
+.option-button {
+  min-height: 46px;
   padding: 12px 14px;
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 14px;
-  outline: none;
-  background: rgba(4, 9, 17, 0.72);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0)),
+    rgba(4, 9, 17, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -10px 20px rgba(0, 0, 0, 0.16);
+  text-align: center;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
-.settings input:focus {
+.option-button:hover {
+  border-color: rgba(0, 224, 255, 0.38);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0)),
+    rgba(6, 15, 27, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -10px 20px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(0, 224, 255, 0.08);
+}
+
+.option-button.is-active {
+  color: #03121d;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  box-shadow:
+    0 10px 24px rgba(0, 168, 255, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.option-button:focus-visible {
+  outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(0, 224, 255, 0.16);
+}
+
+.option-button.is-active:focus-visible {
+  box-shadow:
+    0 0 0 3px rgba(0, 224, 255, 0.16),
+    0 10px 24px rgba(0, 168, 255, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.option-button:disabled {
+  cursor: not-allowed;
+  filter: grayscale(1);
+  opacity: 0.65;
+}
+
+.option-button:not(:disabled):active {
+  transform: translateY(1px);
 }
 
 .actions {
@@ -184,7 +271,7 @@ h1 {
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -199,6 +286,13 @@ h1 {
   display: block;
   margin-top: 6px;
   font-size: 1.05rem;
+}
+
+.records {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .records-header {
@@ -223,7 +317,8 @@ h1 {
 
 .records-list {
   display: grid;
-  max-height: 260px;
+  min-height: 0;
+  align-content: start;
   gap: 10px;
   margin: 0;
   padding: 0;
@@ -254,8 +349,9 @@ h1 {
 
 .game-shell {
   position: relative;
-  min-height: 620px;
+  min-height: 0;
   padding: 18px;
+  overflow: hidden;
 }
 
 .game-status {
@@ -263,11 +359,13 @@ h1 {
   z-index: 5;
   top: 34px;
   left: 50%;
+  max-width: min(calc(100% - 40px), 420px);
   padding: 10px 16px;
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 999px;
   background: rgba(4, 9, 17, 0.68);
+  text-align: center;
   transform: translateX(-50%);
   pointer-events: none;
 }
@@ -276,7 +374,7 @@ h1 {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 584px;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid rgba(0, 224, 255, 0.16);
   border-radius: 22px;
@@ -323,34 +421,80 @@ h1 {
   transform: translate(-50%, -50%) scale(0.92);
 }
 
+.score-popup {
+  position: absolute;
+  z-index: 6;
+  color: #ff4d6d;
+  font-size: clamp(1.5rem, 2.6vw, 1.95rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 12px rgba(255, 77, 109, 0.45);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation: score-pop 520ms ease-out forwards;
+}
+
 @keyframes pop-in {
   to {
     transform: translate(-50%, -50%) scale(1);
   }
 }
 
+@keyframes score-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -35%) scale(0.72);
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -140%) scale(1);
+  }
+}
+
 @media (max-width: 900px) {
+  body {
+    overflow: auto;
+  }
+
   .hero,
   .layout {
     grid-template-columns: 1fr;
+  }
+
+  .app {
+    height: auto;
   }
 
   .score-card {
     width: 100%;
   }
 
+  .panel {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .records-list {
+    max-height: 260px;
+  }
+
   .game-shell {
-    min-height: 520px;
+    min-height: clamp(520px, 70vh, 640px);
   }
 
   .game-area {
-    min-height: 484px;
+    min-height: clamp(484px, 64vh, 604px);
   }
 }
 
 @media (max-width: 560px) {
   .app {
-    width: min(100% - 20px, 1180px);
+    width: min(calc(100% - 20px), var(--app-max-width));
     padding: 18px 0;
   }
 
