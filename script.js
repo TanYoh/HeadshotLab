@@ -15,11 +15,14 @@ const resetButton = document.querySelector("#reset-button");
 const clearRecordsButton = document.querySelector("#clear-records");
 const gameArea = document.querySelector("#game-area");
 const gameStatus = document.querySelector("#game-status");
+const configTop3 = document.querySelector(".config-top3");
 const scoreEl = document.querySelector("#score");
 const timeLeftEl = document.querySelector("#time-left");
 const spawnCountEl = document.querySelector("#spawn-count");
 const accuracyEl = document.querySelector("#accuracy");
 const recentRecordsList = document.querySelector("#recent-records-list");
+const activeConfigLabelEl = document.querySelector("#active-config-label");
+const activeTopRecordsList = document.querySelector("#active-top-records-list");
 
 const DURATION_PRESETS = {
   "60": { label: "60s", value: 60000 },
@@ -43,6 +46,8 @@ const TARGET_SCORE_ZONES = [
   { maxRatio: 0.5, points: 2 },
   { maxRatio: 1, points: 1 },
 ];
+const TARGET_OVERLAY_CLEARANCE = 14;
+const TARGET_SPAWN_ATTEMPTS = 60;
 
 const state = {
   isRunning: false,
@@ -291,6 +296,30 @@ function getSettings() {
   };
 }
 
+function formatAccuracy(hits, spawns) {
+  return `${spawns === 0 ? 0 : Math.round((hits / spawns) * 100)}%`;
+}
+
+function getSettingsRecordFilter(settings) {
+  return {
+    durationSeconds: settings.durationMs / 1000,
+    intervalMs: settings.intervalMs,
+    uiSize: settings.uiSize,
+  };
+}
+
+function isRecordMatchingFilter(record, filter) {
+  return (
+    record.durationSeconds === filter.durationSeconds &&
+    record.intervalMs === filter.intervalMs &&
+    (record.uiSize ?? DEFAULT_UI_SIZE) === filter.uiSize
+  );
+}
+
+function formatCurrentConfigLabel(filter) {
+  return `${formatDurationLabel(filter.durationSeconds)} · ${formatIntervalLabel(filter.intervalMs)} · ${formatUiSizeLabel(filter.uiSize)}`;
+}
+
 function applySettingsToInputs(settings) {
   durationInput.value = findPresetKeyByValue(DURATION_PRESETS, settings.durationMs, "60");
   intervalInput.value = findPresetKeyByValue(INTERVAL_PRESETS, settings.intervalMs, "medium");
@@ -361,6 +390,68 @@ function showScorePopup(points, event) {
   gameArea.append(popup);
 }
 
+function getAvoidRectForElement(element, areaRect) {
+  if (!element) {
+    return null;
+  }
+
+  const rect = element.getBoundingClientRect();
+  const left = Math.max(0, rect.left - areaRect.left - TARGET_OVERLAY_CLEARANCE);
+  const top = Math.max(0, rect.top - areaRect.top - TARGET_OVERLAY_CLEARANCE);
+  const right = Math.min(areaRect.width, rect.right - areaRect.left + TARGET_OVERLAY_CLEARANCE);
+  const bottom = Math.min(areaRect.height, rect.bottom - areaRect.top + TARGET_OVERLAY_CLEARANCE);
+
+  if (right <= left || bottom <= top) {
+    return null;
+  }
+
+  return { left, top, right, bottom };
+}
+
+function getTargetAvoidRects(areaRect) {
+  return [gameStatus, configTop3]
+    .map((element) => getAvoidRectForElement(element, areaRect))
+    .filter((rect) => rect !== null);
+}
+
+function isTargetPositionBlocked(x, y, radius, avoidRects) {
+  const targetLeft = x - radius;
+  const targetTop = y - radius;
+  const targetRight = x + radius;
+  const targetBottom = y + radius;
+
+  return avoidRects.some(
+    (rect) =>
+      targetRight > rect.left &&
+      targetLeft < rect.right &&
+      targetBottom > rect.top &&
+      targetTop < rect.bottom,
+  );
+}
+
+function getTargetSpawnPosition(areaRect) {
+  const radius = state.targetSize / 2;
+  const minX = radius;
+  const maxX = Math.max(radius, areaRect.width - radius);
+  const minY = radius;
+  const maxY = Math.max(radius, areaRect.height - radius);
+  const avoidRects = getTargetAvoidRects(areaRect);
+
+  for (let attempt = 0; attempt < TARGET_SPAWN_ATTEMPTS; attempt += 1) {
+    const x = Math.random() * Math.max(0, maxX - minX) + minX;
+    const y = Math.random() * Math.max(0, maxY - minY) + minY;
+
+    if (!isTargetPositionBlocked(x, y, radius, avoidRects)) {
+      return { x, y };
+    }
+  }
+
+  return {
+    x: Math.random() * Math.max(0, maxX - minX) + minX,
+    y: Math.random() * Math.max(0, maxY - minY) + minY,
+  };
+}
+
 function spawnTarget() {
   if (!state.isRunning) {
     return;
@@ -374,9 +465,7 @@ function spawnTarget() {
   removeTarget();
 
   const rect = gameArea.getBoundingClientRect();
-  const radius = state.targetSize / 2;
-  const x = Math.random() * Math.max(0, rect.width - state.targetSize) + radius;
-  const y = Math.random() * Math.max(0, rect.height - state.targetSize) + radius;
+  const { x, y } = getTargetSpawnPosition(rect);
   const target = document.createElement("button");
 
   target.type = "button";
@@ -543,7 +632,6 @@ function createRecordListItem(record) {
   const accuracyText = document.createElement("span");
   const meta = document.createElement("span");
   const hits = record.hits ?? record.score;
-  const accuracy = record.spawns === 0 ? 0 : Math.round((hits / record.spawns) * 100);
   const date = new Intl.DateTimeFormat("zh-CN", {
     month: "2-digit",
     day: "2-digit",
@@ -553,12 +641,35 @@ function createRecordListItem(record) {
 
   scoreRow.className = "record-score";
   scoreText.textContent = `${record.score} 分`;
-  accuracyText.textContent = `${accuracy}%`;
+  accuracyText.textContent = formatAccuracy(hits, record.spawns);
   meta.className = "record-meta";
   meta.textContent = `${date} · ${formatDurationLabel(record.durationSeconds)} · ${formatIntervalLabel(record.intervalMs)} · ${formatUiSizeLabel(record.uiSize ?? DEFAULT_UI_SIZE)}`;
 
   scoreRow.append(scoreText, accuracyText);
   item.append(scoreRow, meta);
+  return item;
+}
+
+function createTopRecordListItem(record, index) {
+  const item = document.createElement("li");
+  const header = document.createElement("div");
+  const medal = document.createElement("span");
+  const score = document.createElement("span");
+  const accuracy = document.createElement("span");
+  const hits = record.hits ?? record.score;
+  const medals = ["🥇", "🥈", "🥉"];
+
+  header.className = "config-top3__item-head";
+  medal.className = "config-top3__medal";
+  medal.textContent = medals[index] ?? "•";
+  medal.setAttribute("aria-label", `第 ${index + 1} 名`);
+  score.textContent = `${record.score} 分`;
+  score.className = "config-top3__score";
+  accuracy.className = "config-top3__accuracy";
+  accuracy.textContent = `命中率 ${formatAccuracy(hits, record.spawns)}`;
+
+  header.append(medal, score, accuracy);
+  item.append(header);
   return item;
 }
 
@@ -575,6 +686,24 @@ async function renderRecords() {
 
   recentRecords.forEach((record) => {
     recentRecordsList.append(createRecordListItem(record));
+  });
+}
+
+async function renderCurrentTopRecords() {
+  const filter = getSettingsRecordFilter(getSettings());
+  const records = await readRecords();
+  const topRecords = records.filter((record) => isRecordMatchingFilter(record, filter)).sort(compareRecords).slice(0, 3);
+
+  activeConfigLabelEl.textContent = formatCurrentConfigLabel(filter);
+  activeTopRecordsList.innerHTML = "";
+
+  if (topRecords.length === 0) {
+    renderEmptyRecordsState(activeTopRecordsList, "当前配置还没有成绩记录。");
+    return;
+  }
+
+  topRecords.forEach((record, index) => {
+    activeTopRecordsList.append(createTopRecordListItem(record, index));
   });
 }
 
@@ -595,6 +724,7 @@ async function saveRecord() {
     return records;
   });
   await renderRecords();
+  await renderCurrentTopRecords();
 }
 
 function endGame(shouldSave = true) {
@@ -677,6 +807,7 @@ resetButton.addEventListener("click", resetGame);
 clearRecordsButton.addEventListener("click", () => {
   void enqueueRecordMutation(() => []).then(() => {
     void renderRecords();
+    void renderCurrentTopRecords();
     gameStatus.textContent = "成绩记录已清空";
   });
 });
@@ -705,6 +836,12 @@ durationInput.addEventListener("change", () => {
     state.durationMs = getSettings().durationMs;
     updateHud();
   }
+
+  void renderCurrentTopRecords();
+});
+
+intervalInput.addEventListener("change", () => {
+  void renderCurrentTopRecords();
 });
 
 uiSizeInput.addEventListener("change", () => {
@@ -712,6 +849,8 @@ uiSizeInput.addEventListener("change", () => {
     state.uiSize = getSettings().uiSize;
     applyUiSizePreset(state.uiSize);
   }
+
+  void renderCurrentTopRecords();
 });
 
 applySettingsToInputs({
@@ -722,5 +861,6 @@ applySettingsToInputs({
 });
 void loadRecords().then(() => {
   void renderRecords();
+  void renderCurrentTopRecords();
 });
 updateHud();

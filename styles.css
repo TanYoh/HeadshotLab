@@ -417,17 +417,101 @@ h1 {
 .game-status {
   position: absolute;
   z-index: 5;
-  top: 34px;
+  top: 24px;
   left: 50%;
   max-width: min(calc(100% - 40px), 420px);
   padding: 10px 16px;
   color: var(--text);
-  border: 1px solid var(--border);
+  font-size: 0.84rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
-  background: rgba(4, 9, 17, 0.68);
+  background: rgba(4, 9, 17, 0.5);
+  box-shadow: none;
+  backdrop-filter: none;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
   text-align: center;
   transform: translateX(-50%);
   pointer-events: none;
+}
+
+.config-top3 {
+  position: absolute;
+  z-index: 5;
+  top: 24px;
+  right: 24px;
+  width: min(220px, calc(100% - 48px));
+  padding: 8px 12px 9px;
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background: rgba(4, 9, 17, 0.5);
+  box-shadow: none;
+  backdrop-filter: none;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  text-align: left;
+  pointer-events: none;
+}
+
+.config-top3__header {
+  margin-bottom: 5px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  line-height: 1.45;
+}
+
+.config-top3__label {
+  display: block;
+  color: var(--muted);
+  font-size: 0.66rem;
+}
+
+.config-top3__list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.config-top3__list li {
+  padding: 0;
+}
+
+.config-top3__item-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.config-top3__list li + li {
+  padding-top: 4px;
+}
+
+.config-top3__medal {
+  font-size: 0.82rem;
+  line-height: 1;
+}
+
+.config-top3__score {
+  white-space: nowrap;
+}
+
+.config-top3__accuracy {
+  color: var(--muted);
+  font-size: 0.62rem;
+  white-space: nowrap;
+}
+
+.config-top3 .empty-records {
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.66rem;
+  line-height: 1.45;
+  border: 0;
+  background: transparent;
 }
 
 .game-area {
@@ -545,6 +629,17 @@ h1 {
 
   .game-shell {
     min-height: clamp(520px, 70vh, 640px);
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .game-status,
+  .config-top3 {
+    position: static;
+    width: 100%;
+    max-width: none;
+    transform: none;
   }
 
   .game-area {
