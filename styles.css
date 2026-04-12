@@ -308,6 +308,47 @@ h1 {
   font-size: 1.1rem;
 }
 
+.records h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.records-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.records-group {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+
+.records-group--recent {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.records-subheader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.records-hint {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .text-button {
   color: var(--accent);
   background: transparent;
@@ -317,13 +358,32 @@ h1 {
 
 .records-list {
   display: grid;
+  flex: 1 1 auto;
   min-height: 0;
   align-content: start;
   gap: 10px;
   margin: 0;
-  padding: 0;
+  padding: 0 8px 0 0;
   overflow: auto;
   list-style: none;
+  scrollbar-gutter: stable;
+}
+
+.records-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.records-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.records-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(146, 165, 184, 0.38);
+}
+
+.records-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(146, 165, 184, 0.56);
 }
 
 .records-list li,
@@ -506,5 +566,14 @@ h1 {
   .stats,
   .actions {
     grid-template-columns: 1fr;
+  }
+
+  .records-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .records-groups {
+    flex: none;
   }
 }

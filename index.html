@@ -79,7 +79,14 @@
               <h2 id="records-title">分数记录</h2>
               <button id="clear-records" type="button" class="text-button">清空</button>
             </div>
-            <ol id="records-list" class="records-list"></ol>
+            <div class="records-groups">
+              <section class="records-group records-group--recent" aria-labelledby="recent-records-title">
+                <div class="records-subheader">
+                  <h3 id="recent-records-title">最近 10 次</h3>
+                </div>
+                <ol id="recent-records-list" class="records-list"></ol>
+              </section>
+            </div>
           </section>
         </aside>
 

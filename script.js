@@ -1,4 +1,6 @@
 ﻿const STORAGE_KEY = "delta-aim-trainer-records";
+const RECORDS_FILE_NAME = `${STORAGE_KEY}.json`;
+const RECORDS_SCHEMA_VERSION = 1;
 const DEFAULT_TARGET_SIZE = 42;
 const DEFAULT_UI_SIZE = "small";
 
@@ -17,7 +19,7 @@ const scoreEl = document.querySelector("#score");
 const timeLeftEl = document.querySelector("#time-left");
 const spawnCountEl = document.querySelector("#spawn-count");
 const accuracyEl = document.querySelector("#accuracy");
-const recordsList = document.querySelector("#records-list");
+const recentRecordsList = document.querySelector("#recent-records-list");
 
 const DURATION_PRESETS = {
   "60": { label: "60s", value: 60000 },
@@ -58,6 +60,13 @@ const state = {
   activeTarget: null,
 };
 
+const recordsState = {
+  cache: [],
+  loadPromise: null,
+  queue: Promise.resolve([]),
+  storageBackend: "localStorage",
+};
+
 function getPresetFromInput(input, presets, fallbackKey) {
   return presets[input.value] ? input.value : fallbackKey;
 }
@@ -80,6 +89,164 @@ function formatIntervalLabel(intervalMs) {
 function formatUiSizeLabel(uiSizeKey) {
   const preset = UI_SIZE_PRESETS[uiSizeKey];
   return preset ? preset.label : UI_SIZE_PRESETS[DEFAULT_UI_SIZE].label;
+}
+
+function createRecordId() {
+  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `record-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function compareRecords(a, b) {
+  if (b.score !== a.score) {
+    return b.score - a.score;
+  }
+
+  return new Date(b.createdAt) - new Date(a.createdAt);
+}
+
+function compareRecordsByNewest(a, b) {
+  return new Date(b.createdAt) - new Date(a.createdAt);
+}
+
+function normalizeIsoDate(value) {
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? null : new Date(timestamp).toISOString();
+}
+
+function normalizeNonNegativeNumber(value, fallback) {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : fallback;
+}
+
+function normalizeRecord(record) {
+  if (!record || typeof record !== "object") {
+    return null;
+  }
+
+  const createdAt = normalizeIsoDate(record.createdAt) || new Date().toISOString();
+  const score = Math.round(normalizeNonNegativeNumber(record.score, 0));
+  const hitsFallback = typeof record.hits === "undefined" ? score : 0;
+  const hits = Math.round(normalizeNonNegativeNumber(record.hits, hitsFallback));
+  const spawns = Math.round(normalizeNonNegativeNumber(record.spawns, 0));
+  const durationSeconds = Math.round(
+    normalizeNonNegativeNumber(record.durationSeconds, normalizeNonNegativeNumber(record.durationMs, 60000) / 1000),
+  );
+  const intervalMs = Math.round(normalizeNonNegativeNumber(record.intervalMs, 800));
+  const uiSize = UI_SIZE_PRESETS[record.uiSize] ? record.uiSize : DEFAULT_UI_SIZE;
+
+  return {
+    id: typeof record.id === "string" && record.id.trim() ? record.id : createRecordId(),
+    score,
+    hits,
+    spawns,
+    durationSeconds,
+    intervalMs,
+    uiSize,
+    createdAt,
+  };
+}
+
+function getRecordSignature(record) {
+  return [
+    record.score,
+    record.hits,
+    record.spawns,
+    record.durationSeconds,
+    record.intervalMs,
+    record.uiSize,
+    record.createdAt,
+  ].join("|");
+}
+
+function sortAndDedupeRecords(records) {
+  const seen = new Set();
+
+  return records
+    .map(normalizeRecord)
+    .filter((record) => record !== null)
+    .sort(compareRecords)
+    .filter((record) => {
+      const signature = getRecordSignature(record);
+
+      if (seen.has(signature)) {
+        return false;
+      }
+
+      seen.add(signature);
+      return true;
+    });
+}
+
+function normalizeRecordsPayload(payload) {
+  if (Array.isArray(payload)) {
+    return sortAndDedupeRecords(payload);
+  }
+
+  if (!payload || typeof payload !== "object" || !Array.isArray(payload.records)) {
+    return [];
+  }
+
+  return sortAndDedupeRecords(payload.records);
+}
+
+function serializeRecordsPayload(records) {
+  return JSON.stringify(
+    {
+      version: RECORDS_SCHEMA_VERSION,
+      records: sortAndDedupeRecords(records),
+    },
+    null,
+    2,
+  );
+}
+
+function readLegacyRecords() {
+  try {
+    const records = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    return normalizeRecordsPayload(records);
+  } catch {
+    return [];
+  }
+}
+
+function writeLegacyRecords(records) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(sortAndDedupeRecords(records)));
+}
+
+function clearLegacyRecords() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Ignore cleanup failures after the source of truth has moved elsewhere.
+  }
+}
+
+async function getRecordsFileHandle() {
+  if (!navigator.storage || typeof navigator.storage.getDirectory !== "function") {
+    return null;
+  }
+
+  try {
+    const rootDirectory = await navigator.storage.getDirectory();
+    return rootDirectory.getFileHandle(RECORDS_FILE_NAME, { create: true });
+  } catch {
+    return null;
+  }
+}
+
+async function requestPersistentStorage() {
+  if (!navigator.storage || typeof navigator.storage.persist !== "function") {
+    return;
+  }
+
+  try {
+    await navigator.storage.persist();
+  } catch {
+    // Ignore best-effort persistence failures and keep the app usable.
+  }
 }
 
 function applyUiSizePreset(uiSizeKey) {
@@ -265,60 +432,155 @@ function scheduleNextTarget() {
   }, state.intervalMs);
 }
 
-function readRecords() {
+async function readRecordsFromFile() {
+  const fileHandle = await getRecordsFileHandle();
+
+  if (!fileHandle) {
+    return null;
+  }
+
   try {
-    const records = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    return Array.isArray(records) ? records : [];
+    const file = await fileHandle.getFile();
+    const content = await file.text();
+
+    recordsState.storageBackend = "opfs";
+
+    if (!content.trim()) {
+      return [];
+    }
+
+    return normalizeRecordsPayload(JSON.parse(content));
   } catch {
-    return [];
+    return null;
   }
 }
 
-function writeRecords(records) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records.slice(0, 10)));
+async function loadRecords() {
+  if (recordsState.loadPromise) {
+    return recordsState.loadPromise;
+  }
+
+  recordsState.loadPromise = (async () => {
+    await requestPersistentStorage();
+
+    const fileRecords = await readRecordsFromFile();
+    const legacyRecords = readLegacyRecords();
+
+    if (fileRecords !== null && fileRecords.length > 0) {
+      const mergedRecords = sortAndDedupeRecords([...fileRecords, ...legacyRecords]);
+
+      recordsState.cache = mergedRecords;
+
+      if (legacyRecords.length > 0 || mergedRecords.length !== fileRecords.length) {
+        await writeRecords(mergedRecords);
+      }
+
+      return [...recordsState.cache];
+    }
+
+    recordsState.cache = legacyRecords;
+    recordsState.storageBackend = "localStorage";
+    return [...recordsState.cache];
+  })();
+
+  return recordsState.loadPromise;
 }
 
-function renderRecords() {
-  const records = readRecords();
-  recordsList.innerHTML = "";
+async function readRecords() {
+  if (!recordsState.loadPromise) {
+    await loadRecords();
+  }
 
-  if (records.length === 0) {
-    const empty = document.createElement("li");
-    empty.className = "empty-records";
-    empty.textContent = "还没有记录，开始第一局吧。";
-    recordsList.append(empty);
+  return [...recordsState.cache];
+}
+
+async function writeRecords(records) {
+  const nextRecords = sortAndDedupeRecords(records);
+  const fileHandle = await getRecordsFileHandle();
+
+  if (fileHandle) {
+    try {
+      const writable = await fileHandle.createWritable();
+      await writable.write(serializeRecordsPayload(nextRecords));
+      await writable.close();
+      recordsState.cache = nextRecords;
+      recordsState.storageBackend = "opfs";
+      clearLegacyRecords();
+      return [...recordsState.cache];
+    } catch {
+      // Fall through to localStorage below.
+    }
+  }
+
+  writeLegacyRecords(nextRecords);
+  recordsState.cache = nextRecords;
+  recordsState.storageBackend = "localStorage";
+  return [...recordsState.cache];
+}
+
+function enqueueRecordMutation(mutateRecords) {
+  const runMutation = async () => {
+    const currentRecords = await readRecords();
+    return writeRecords(mutateRecords([...currentRecords]));
+  };
+
+  recordsState.queue = recordsState.queue.then(runMutation, runMutation);
+  return recordsState.queue;
+}
+
+function renderEmptyRecordsState(list, message) {
+  const empty = document.createElement("li");
+
+  empty.className = "empty-records";
+  empty.textContent = message;
+  list.append(empty);
+}
+
+function createRecordListItem(record) {
+  const item = document.createElement("li");
+  const scoreRow = document.createElement("span");
+  const scoreText = document.createElement("span");
+  const accuracyText = document.createElement("span");
+  const meta = document.createElement("span");
+  const hits = record.hits ?? record.score;
+  const accuracy = record.spawns === 0 ? 0 : Math.round((hits / record.spawns) * 100);
+  const date = new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(record.createdAt));
+
+  scoreRow.className = "record-score";
+  scoreText.textContent = `${record.score} 分`;
+  accuracyText.textContent = `${accuracy}%`;
+  meta.className = "record-meta";
+  meta.textContent = `${date} · ${formatDurationLabel(record.durationSeconds)} · ${formatIntervalLabel(record.intervalMs)} · ${formatUiSizeLabel(record.uiSize ?? DEFAULT_UI_SIZE)}`;
+
+  scoreRow.append(scoreText, accuracyText);
+  item.append(scoreRow, meta);
+  return item;
+}
+
+async function renderRecords() {
+  const records = await readRecords();
+  const recentRecords = [...records].sort(compareRecordsByNewest).slice(0, 10);
+
+  recentRecordsList.innerHTML = "";
+
+  if (recentRecords.length === 0) {
+    renderEmptyRecordsState(recentRecordsList, "还没有记录，开始第一局吧。");
     return;
   }
 
-  records.forEach((record, index) => {
-    const item = document.createElement("li");
-    const scoreRow = document.createElement("span");
-    const scoreText = document.createElement("span");
-    const accuracyText = document.createElement("span");
-    const meta = document.createElement("span");
-    const hits = record.hits ?? record.score;
-    const accuracy = record.spawns === 0 ? 0 : Math.round((hits / record.spawns) * 100);
-    const date = new Intl.DateTimeFormat("zh-CN", {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(new Date(record.createdAt));
-
-    scoreRow.className = "record-score";
-    scoreText.textContent = `#${index + 1} ${record.score} 分`;
-    accuracyText.textContent = `${accuracy}%`;
-    meta.className = "record-meta";
-    meta.textContent = `${date} · ${formatDurationLabel(record.durationSeconds)} · ${formatIntervalLabel(record.intervalMs)} · ${formatUiSizeLabel(record.uiSize ?? DEFAULT_UI_SIZE)}`;
-
-    scoreRow.append(scoreText, accuracyText);
-    item.append(scoreRow, meta);
-    recordsList.append(item);
+  recentRecords.forEach((record) => {
+    recentRecordsList.append(createRecordListItem(record));
   });
 }
 
-function saveRecord() {
+async function saveRecord() {
   const newRecord = {
+    id: createRecordId(),
     score: state.score,
     hits: state.hits,
     spawns: state.spawns,
@@ -327,18 +589,12 @@ function saveRecord() {
     uiSize: state.uiSize,
     createdAt: new Date().toISOString(),
   };
-  const records = readRecords();
 
-  records.push(newRecord);
-  records.sort((a, b) => {
-    if (b.score !== a.score) {
-      return b.score - a.score;
-    }
-    return new Date(b.createdAt) - new Date(a.createdAt);
+  await enqueueRecordMutation((records) => {
+    records.push(newRecord);
+    return records;
   });
-
-  writeRecords(records);
-  renderRecords();
+  await renderRecords();
 }
 
 function endGame(shouldSave = true) {
@@ -354,8 +610,11 @@ function endGame(shouldSave = true) {
   updateHud();
 
   if (shouldSave) {
-    saveRecord();
-    gameStatus.textContent = `训练结束，${state.score} 分，命中率 ${accuracyEl.textContent}`;
+    const statusText = `训练结束，${state.score} 分，命中率 ${accuracyEl.textContent}`;
+    gameStatus.textContent = statusText;
+    void saveRecord().catch(() => {
+      gameStatus.textContent = `${statusText}，成绩保存失败`;
+    });
   } else {
     gameStatus.textContent = "训练已重置";
   }
@@ -416,8 +675,10 @@ function resetGame() {
 form.addEventListener("submit", startGame);
 resetButton.addEventListener("click", resetGame);
 clearRecordsButton.addEventListener("click", () => {
-  localStorage.removeItem(STORAGE_KEY);
-  renderRecords();
+  void enqueueRecordMutation(() => []).then(() => {
+    void renderRecords();
+    gameStatus.textContent = "成绩记录已清空";
+  });
 });
 
 optionGroups.forEach((group) => {
@@ -459,5 +720,7 @@ applySettingsToInputs({
   targetSize: state.targetSize,
   uiSize: state.uiSize,
 });
-renderRecords();
+void loadRecords().then(() => {
+  void renderRecords();
+});
 updateHud();
