@@ -357,12 +357,36 @@ function removeTarget() {
   }
 }
 
+function canTriggerPointerHit(event) {
+  if (typeof event.button === "number" && event.button !== 0) {
+    return false;
+  }
+
+  return !("isPrimary" in event) || event.isPrimary;
+}
+
+function getEventClientPoint(event, fallbackRect) {
+  if (
+    typeof event.clientX === "number" &&
+    typeof event.clientY === "number" &&
+    (event.detail > 0 || event.clientX !== 0 || event.clientY !== 0)
+  ) {
+    return { clientX: event.clientX, clientY: event.clientY };
+  }
+
+  return {
+    clientX: fallbackRect.left + fallbackRect.width / 2,
+    clientY: fallbackRect.top + fallbackRect.height / 2,
+  };
+}
+
 function getHitPoints(target, event) {
   const rect = target.getBoundingClientRect();
   const radius = rect.width / 2;
   const centerX = rect.left + radius;
   const centerY = rect.top + radius;
-  const distance = Math.hypot(event.clientX - centerX, event.clientY - centerY);
+  const { clientX, clientY } = getEventClientPoint(event, rect);
+  const distance = Math.hypot(clientX - centerX, clientY - centerY);
   const hitRatio = radius === 0 ? 0 : distance / radius;
   const zone = TARGET_SCORE_ZONES.find(({ maxRatio }) => hitRatio <= maxRatio);
 
@@ -371,9 +395,10 @@ function getHitPoints(target, event) {
 
 function showScorePopup(points, event) {
   const areaRect = gameArea.getBoundingClientRect();
+  const { clientX, clientY } = getEventClientPoint(event, areaRect);
   const popup = document.createElement("span");
-  const x = Math.min(Math.max(event.clientX - areaRect.left, 24), areaRect.width - 24);
-  const y = Math.min(Math.max(event.clientY - areaRect.top - 12, 24), areaRect.height - 24);
+  const x = Math.min(Math.max(clientX - areaRect.left, 24), areaRect.width - 24);
+  const y = Math.min(Math.max(clientY - areaRect.top - 12, 24), areaRect.height - 24);
 
   popup.className = "score-popup";
   popup.textContent = `+${points}`;
@@ -452,6 +477,24 @@ function getTargetSpawnPosition(areaRect) {
   };
 }
 
+function handleTargetHit(target, event) {
+  if (!state.isRunning || target !== state.activeTarget) {
+    return;
+  }
+
+  const points = getHitPoints(target, event);
+
+  if (points === 0) {
+    return;
+  }
+
+  state.score += points;
+  state.hits += 1;
+  showScorePopup(points, event);
+  removeTarget();
+  updateHud();
+}
+
 function spawnTarget() {
   if (!state.isRunning) {
     return;
@@ -476,23 +519,23 @@ function spawnTarget() {
   target.style.top = `${y}px`;
   target.setAttribute("aria-label", "点击目标");
 
+  target.addEventListener("pointerdown", (event) => {
+    if (!canTriggerPointerHit(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    handleTargetHit(target, event);
+  });
+
   target.addEventListener("click", (event) => {
     event.stopPropagation();
-    if (!state.isRunning || target !== state.activeTarget) {
+    if (event.detail > 0) {
       return;
     }
 
-    const points = getHitPoints(target, event);
-
-    if (points === 0) {
-      return;
-    }
-
-    state.score += points;
-    state.hits += 1;
-    showScorePopup(points, event);
-    removeTarget();
-    updateHud();
+    handleTargetHit(target, event);
   });
 
   gameArea.append(target);
