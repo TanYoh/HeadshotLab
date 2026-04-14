@@ -562,9 +562,11 @@ function getEventClientPoint(event, fallbackRect) {
 
 function getHitPoints(target, event) {
   const rect = target.getBoundingClientRect();
-  const radius = rect.width / 2;
-  const centerX = rect.left + radius;
-  const centerY = rect.top + radius;
+  const fallbackDiameter = Number.parseFloat(target.style.width) || rect.width;
+  const diameter = target.offsetWidth || fallbackDiameter;
+  const radius = diameter / 2;
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
   const { clientX, clientY } = getEventClientPoint(event, rect);
   const distance = Math.hypot(clientX - centerX, clientY - centerY);
   const hitRatio = radius === 0 ? 0 : distance / radius;
