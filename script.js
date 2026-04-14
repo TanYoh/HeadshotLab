@@ -12,6 +12,7 @@ const uiSizeInput = document.querySelector("#ui-size");
 const optionGroups = [...document.querySelectorAll(".option-group")];
 const startButton = document.querySelector("#start-button");
 const resetButton = document.querySelector("#reset-button");
+const openGuideButton = document.querySelector("#open-guide-button");
 const clearRecordsButton = document.querySelector("#clear-records");
 const gameArea = document.querySelector("#game-area");
 const gameStatus = document.querySelector("#game-status");
@@ -23,6 +24,11 @@ const accuracyEl = document.querySelector("#accuracy");
 const recentRecordsList = document.querySelector("#recent-records-list");
 const activeConfigLabelEl = document.querySelector("#active-config-label");
 const activeTopRecordsList = document.querySelector("#active-top-records-list");
+const startGuide = document.querySelector("#start-guide");
+const scoreGuideFigure = document.querySelector("#score-guide-figure");
+const guideStartButton = document.querySelector("#guide-start-button");
+const guideCancelButton = document.querySelector("#guide-cancel-button");
+const guideDismissToggle = document.querySelector("#guide-dismiss-toggle");
 
 const DURATION_PRESETS = {
   "60": { label: "60s", value: 60000 },
@@ -46,8 +52,40 @@ const TARGET_SCORE_ZONES = [
   { maxRatio: 0.5, points: 2 },
   { maxRatio: 1, points: 1 },
 ];
+const SCORE_GUIDE_METADATA = [
+  {
+    title: "红心",
+    targetX: 88,
+    targetY: 94,
+    bendX: 144,
+    bendY: 36,
+    cardX: 176,
+    cardY: 14,
+  },
+  {
+    title: "内环",
+    targetX: 100,
+    targetY: 104,
+    bendX: 166,
+    bendY: 76,
+    cardX: 198,
+    cardY: 82,
+    isStraight: true,
+  },
+  {
+    title: "外圈",
+    targetX: 88,
+    targetY: 128,
+    bendX: 146,
+    bendY: 156,
+    cardX: 172,
+    cardY: 138,
+  },
+];
 const TARGET_OVERLAY_CLEARANCE = 14;
 const TARGET_SPAWN_ATTEMPTS = 60;
+const SVG_NS = "http://www.w3.org/2000/svg";
+const START_GUIDE_DISMISSED_KEY = "delta-aim-trainer-hide-start-guide";
 
 const state = {
   isRunning: false,
@@ -328,6 +366,145 @@ function applySettingsToInputs(settings) {
   state.uiSize = applyUiSizePreset(uiSizeInput.value);
 }
 
+function createSvgElement(tagName, attributes = {}) {
+  const element = document.createElementNS(SVG_NS, tagName);
+
+  Object.entries(attributes).forEach(([name, value]) => {
+    element.setAttribute(name, String(value));
+  });
+
+  return element;
+}
+
+function isStartGuideDismissed() {
+  try {
+    return localStorage.getItem(START_GUIDE_DISMISSED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function setStartGuideDismissed(shouldDismiss) {
+  try {
+    localStorage.setItem(START_GUIDE_DISMISSED_KEY, String(shouldDismiss));
+  } catch {
+    // Ignore storage failures and keep the guide usable.
+  }
+}
+
+function renderScoreGuide() {
+  if (!scoreGuideFigure) {
+    return;
+  }
+
+  scoreGuideFigure.innerHTML = "";
+  const canvas = document.createElement("div");
+
+  const svg = createSvgElement("svg", {
+    viewBox: "0 0 320 190",
+    class: "start-guide__svg",
+    role: "img",
+    "aria-label": TARGET_SCORE_ZONES.map((zone, index) => {
+      const metadata = SCORE_GUIDE_METADATA[index] ?? SCORE_GUIDE_METADATA[SCORE_GUIDE_METADATA.length - 1];
+      return `命中${metadata.title}加${zone.points}分`;
+    }).join("，"),
+  });
+  const target = document.createElement("div");
+
+  canvas.className = "start-guide__canvas";
+  target.className = "target target--guide";
+  target.style.width = "76px";
+  target.style.height = "76px";
+  target.style.left = "88px";
+  target.style.top = "94px";
+
+  TARGET_SCORE_ZONES.forEach((zone, index) => {
+    const metadata = SCORE_GUIDE_METADATA[index] ?? SCORE_GUIDE_METADATA[SCORE_GUIDE_METADATA.length - 1];
+    const group = createSvgElement("g", { class: "start-guide__callout" });
+    const cardWidth = 112;
+    const cardHeight = 44;
+    const cardTextX = metadata.cardX + 12;
+    const cardCenterY = metadata.cardY + cardHeight / 2;
+    const valueTextX = cardTextX;
+    const bendY = cardCenterY;
+    const linePoints = metadata.isStraight
+      ? `${metadata.targetX},${metadata.targetY} ${metadata.cardX},${cardCenterY}`
+      : `${metadata.targetX},${metadata.targetY} ${metadata.bendX},${bendY} ${metadata.cardX},${cardCenterY}`;
+
+    group.append(
+      createSvgElement("polyline", {
+        class: "start-guide__line",
+        points: linePoints,
+      }),
+      createSvgElement("circle", {
+        class: "start-guide__point",
+        cx: metadata.targetX,
+        cy: metadata.targetY,
+        r: 4,
+      }),
+      createSvgElement("rect", {
+        class: "start-guide__card",
+        x: metadata.cardX,
+        y: metadata.cardY,
+        width: cardWidth,
+        height: cardHeight,
+        rx: 7,
+        ry: 7,
+      }),
+      createSvgElement("text", {
+        class: "start-guide__card-label",
+        x: cardTextX,
+        y: metadata.cardY + 14,
+      }),
+      createSvgElement("text", {
+        class: "start-guide__card-value",
+        x: valueTextX,
+        y: metadata.cardY + 33,
+      }),
+    );
+
+    const [labelText, valueText] = group.querySelectorAll("text");
+    labelText.textContent = metadata.title;
+    valueText.textContent = `+${zone.points}分`;
+
+    svg.append(group);
+  });
+
+  canvas.append(target, svg);
+  scoreGuideFigure.append(canvas);
+}
+
+function openStartGuide() {
+  if (!startGuide || !guideStartButton) {
+    return false;
+  }
+
+  if (guideDismissToggle) {
+    guideDismissToggle.checked = isStartGuideDismissed();
+  }
+
+  startGuide.hidden = false;
+  gameStatus.textContent = "训练前先看一下计分说明";
+  guideStartButton.focus();
+  return true;
+}
+
+function closeStartGuide({ restoreStatus = true, restoreFocus = true } = {}) {
+  if (!startGuide) {
+    return;
+  }
+
+  startGuide.hidden = true;
+
+  if (restoreStatus && !state.isRunning) {
+    gameStatus.textContent = "调整参数后点击开始训练";
+  }
+
+  if (restoreFocus && !state.isRunning) {
+    startButton.focus();
+  }
+}
+
 function updateHud() {
   const timeLeftMs = state.isRunning ? Math.max(0, state.endsAt - performance.now()) : state.durationMs;
   const accuracy = state.spawns === 0 ? 0 : Math.round((state.hits / state.spawns) * 100);
@@ -348,6 +525,9 @@ function setSettingsEnabled(isEnabled) {
     });
   });
   startButton.disabled = !isEnabled;
+  if (openGuideButton) {
+    openGuideButton.disabled = !isEnabled;
+  }
 }
 
 function removeTarget() {
@@ -793,10 +973,7 @@ function endGame(shouldSave = true) {
   }
 }
 
-function startGame(event) {
-  event.preventDefault();
-
-  const settings = getSettings();
+function beginGame(settings) {
   applySettingsToInputs(settings);
 
   state.durationMs = settings.durationMs;
@@ -828,10 +1005,24 @@ function startGame(event) {
   }, 100);
 }
 
+function startGame(event) {
+  event.preventDefault();
+
+  if (state.isRunning) {
+    return;
+  }
+
+  if (isStartGuideDismissed() || !openStartGuide()) {
+    beginGame(getSettings());
+  }
+}
+
 function resetGame() {
   if (state.isRunning) {
     endGame(false);
   }
+
+  closeStartGuide({ restoreStatus: false, restoreFocus: false });
 
   const settings = getSettings();
   state.score = 0;
@@ -845,8 +1036,35 @@ function resetGame() {
   updateHud();
 }
 
+renderScoreGuide();
 form.addEventListener("submit", startGame);
 resetButton.addEventListener("click", resetGame);
+guideStartButton?.addEventListener("click", () => {
+  setStartGuideDismissed(Boolean(guideDismissToggle?.checked));
+  closeStartGuide({ restoreStatus: false, restoreFocus: false });
+  beginGame(getSettings());
+});
+guideCancelButton?.addEventListener("click", () => {
+  closeStartGuide();
+});
+guideDismissToggle?.addEventListener("change", () => {
+  setStartGuideDismissed(guideDismissToggle.checked);
+});
+openGuideButton?.addEventListener("click", () => {
+  if (!state.isRunning) {
+    openStartGuide();
+  }
+});
+startGuide?.addEventListener("click", (event) => {
+  if (event.target === startGuide) {
+    closeStartGuide();
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && startGuide && !startGuide.hidden) {
+    closeStartGuide();
+  }
+});
 clearRecordsButton.addEventListener("click", () => {
   void enqueueRecordMutation(() => []).then(() => {
     void renderRecords();

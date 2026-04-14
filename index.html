@@ -57,6 +57,7 @@
               <button id="start-button" type="submit">开始训练</button>
               <button id="reset-button" type="button" class="secondary">重置</button>
             </div>
+            <button id="open-guide-button" type="button" class="text-button guide-shortcut">查看计分说明</button>
           </form>
 
           <div class="stats" aria-label="实时数据">
@@ -99,6 +100,30 @@
             <ol id="active-top-records-list" class="config-top3__list"></ol>
           </section>
           <div id="game-area" class="game-area" tabindex="0" aria-label="目标出现区域"></div>
+          <div id="start-guide" class="start-guide" hidden>
+            <section
+              class="start-guide__dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="start-guide-title"
+              aria-describedby="start-guide-desc"
+            >
+              <p class="start-guide__eyebrow">计分说明</p>
+              <h2 id="start-guide-title">命中不同区域，分数不同</h2>
+              <p id="start-guide-desc" class="start-guide__desc">
+                开始前先看一眼图标示意，点击越靠近靶心，得分越高。
+              </p>
+              <div id="score-guide-figure" class="start-guide__figure" aria-label="计分规则演示"></div>
+              <label class="start-guide__toggle">
+                <input id="guide-dismiss-toggle" type="checkbox" />
+                <span>不再提示</span>
+              </label>
+              <div class="start-guide__actions">
+                <button id="guide-cancel-button" type="button" class="secondary">返回调整</button>
+                <button id="guide-start-button" type="button">我知道了，开始训练</button>
+              </div>
+            </section>
+          </div>
         </section>
       </section>
     </main>
